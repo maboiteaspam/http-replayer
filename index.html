@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Http-replayer by maboiteaspam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Http-replayer</h1>
+      <h2 class="project-tagline">Consume a redis database to replay http requests.</h2>
+      <a href="https://github.com/maboiteaspam/http-replayer" class="btn">View on GitHub</a>
+      <a href="https://github.com/maboiteaspam/http-replayer/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/maboiteaspam/http-replayer/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="http-replayer" class="anchor" href="#http-replayer" aria-hidden="true"><span class="octicon octicon-link"></span></a>http-replayer</h1>
+
+<p>node module which consumes a redis database
+to replay http requests.</p>
+
+<h2>
+<a id="install" class="anchor" href="#install" aria-hidden="true"><span class="octicon octicon-link"></span></a>install</h2>
+
+<pre><code>npm i maboiteaspam/http-replayer -g
+</code></pre>
+
+<h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>usage</h2>
+
+<pre><code>redis-server
+http-replayer [opts]
+</code></pre>
+
+<h5>
+<a id="--rport6379" class="anchor" href="#--rport6379" aria-hidden="true"><span class="octicon octicon-link"></span></a>--rport=<code>6379</code>
+</h5>
+
+<p>Redis port</p>
+
+<h5>
+<a id="--rhost0000" class="anchor" href="#--rhost0000" aria-hidden="true"><span class="octicon octicon-link"></span></a>--rhost=<code>0.0.0.0</code>
+</h5>
+
+<p>Redis host</p>
+
+<h5>
+<a id="--ropts" class="anchor" href="#--ropts" aria-hidden="true"><span class="octicon octicon-link"></span></a>--ropts=``</h5>
+
+<p>Redis options as a stringified json object</p>
+
+<h5>
+<a id="--port8081" class="anchor" href="#--port8081" aria-hidden="true"><span class="octicon octicon-link"></span></a>--port=<code>8081</code>
+</h5>
+
+<p>Replay target http server port</p>
+
+<h5>
+<a id="--host127001" class="anchor" href="#--host127001" aria-hidden="true"><span class="octicon octicon-link"></span></a>--host=<code>127.0.0.1</code>
+</h5>
+
+<p>Replay target http server host</p>
+
+<h2>
+<a id="more-info" class="anchor" href="#more-info" aria-hidden="true"><span class="octicon octicon-link"></span></a>more info</h2>
+
+<h5>
+<a id="data-pulling" class="anchor" href="#data-pulling" aria-hidden="true"><span class="octicon octicon-link"></span></a>data pulling</h5>
+
+<p>The module use a main loop <code>updateCurrentJobs</code>.</p>
+
+<p>This loop pull the whole keyspace at first,
+it come from <code>blockKeys</code> redis <code>set</code>.</p>
+
+<p>Later it won't fetch <code>blockKeys</code> until all known <code>keyspace</code>
+are completed.</p>
+
+<p>Once a <code>keyspace</code> is selected, the system invoke <code>pullJobs</code>
+by range of <code>500</code> items.</p>
+
+<p><code>processJobs</code> is then executed to process
+all selected jobs in parallel with a limit according to <code>jobQueueLength</code>,
+ which defaults to <code>50</code>.</p>
+
+<p>When <code>currentJobs</code> is empty, the systems <code>pullJobs</code> again,
+and also tries to <code>doSomeCleanUp</code> to get a new <code>keyspace</code> id.</p>
+
+<p>The system tries not to stuck on particular <code>keyspaces</code>,
+and call <code>updateCurrentBlockKey</code> to distribute new <code>keyspace</code> to browse.</p>
+
+<h2>
+<a id="need" class="anchor" href="#need" aria-hidden="true"><span class="octicon octicon-link"></span></a>need</h2>
+
+<h5>
+<a id="optimizations" class="anchor" href="#optimizations" aria-hidden="true"><span class="octicon octicon-link"></span></a>optimizations</h5>
+
+<p>They are rooms too optimize.
+Noticeable example is the redis reads/writes.</p>
+
+<h5>
+<a id="improve-cookie-support" class="anchor" href="#improve-cookie-support" aria-hidden="true"><span class="octicon octicon-link"></span></a>improve cookie support</h5>
+
+<p>Needs cookie support improvement.</p>
+
+<h2>
+<a id="see-also" class="anchor" href="#see-also" aria-hidden="true"><span class="octicon octicon-link"></span></a>see also</h2>
+
+<ul>
+<li><a href="https://github.com/maboiteaspam/http-flow-visualizer">http-flow-visualizer</a></li>
+<li><a href="https://github.com/maboiteaspam/http-replayer">http-replayer</a></li>
+</ul>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/maboiteaspam/http-replayer">Http-replayer</a> is maintained by <a href="https://github.com/maboiteaspam">maboiteaspam</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
