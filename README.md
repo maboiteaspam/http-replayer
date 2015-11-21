@@ -50,7 +50,7 @@ all selected jobs in parallel with a limit according to `jobQueueLength`,
  which defaults to `50`.
 
 When `currentJobs` is empty, the systems `pullJobs` again,
-and also tries to `doSomeCleanUp` and get a new `keyspace` id.
+and also tries to `doSomeCleanUp` to get a new `keyspace` id.
 
 The system tries not to stuck on particular `keyspaces`,
 and call `updateCurrentBlockKey` to distribute new `keyspace` to browse.
