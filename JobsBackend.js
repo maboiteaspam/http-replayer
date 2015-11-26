@@ -14,7 +14,6 @@ module.exports = function (){
 
   var that = this;
   var client;
-  var updateInterval;
   var jobsRealized = 0;
   var jobQueueLength = 50;
 
@@ -27,30 +26,37 @@ module.exports = function (){
 
         });
     jobQueueLength = len && parseInt(len) || jobQueueLength;
-
-    client.on('ready', function (){
-      debug('client ready')
-      updateCurrentJobs()
-    })
     return client
   };
   this.end = function () {
     client.end();
-    clearInterval(updateInterval);
-  };
-
-  this.jobProcess = function (chunk, callback) {
-    callback(null, chunk)
   };
 
   var currentBlockKey = false
   var currentBlockKeys = []
   var currentJobs = []
-  this.getJobs = function () {
-    return _.difference(currentJobs, finishedJobs)
-  };
   var finishedJobs = [];
-  this.finishJob = function (job) {
+
+
+  this.getJobs = function (then) {
+    var todo = [];
+    if (!currentBlockKeys.length) {
+      todo.push(function(next){
+        that.fetchBlockKeys(function (keys) {
+          currentBlockKeys = currentBlockKeys.concat(keys)
+          next()
+        })
+      })
+    }
+    if (!currentJobs.length) {
+      todo.push(function(next){
+        pullJobs(function (jobs) {
+          next()
+        })
+      })
+    }
+  };
+  this.finishJob = function (err, job) {
     finishedJobs.push(job)
     currentJobs = _.without(currentJobs, job);
   };
@@ -58,64 +64,38 @@ module.exports = function (){
     currentJobs = _.without(currentJobs, job);
   };
 
-  var isBusy = false;
-  var noMoreBusy = function(){
-    isBusy=false;
-    setTimeout(updateCurrentJobs, currentBlockKeys.length===0?1500:1)
-  };
-  var updateCurrentJobs = function () {
-    if(isBusy) return;
 
-    if (currentBlockKey===false) {
-      isBusy= true;
-      pullBlockKeys(function(){
-        updateCurrentBlockKey(noMoreBusy)
-      })
-
-    } else if (currentJobs.length) {
-      processJobs(noMoreBusy)
-
-    } else if (currentJobs.length===0) {
-      debug('pullJobs')
-      isBusy = true;
-      pullJobs(function () {
-        doSomeCleanUp(function (){
-          updateCurrentBlockKey(noMoreBusy)
-        })
-      })
-
-    }else {
-      debug('weird')
-    }
+  this.fetchJobs = function (blockKey, done) {
+    client.lrange('r'+blockKey, 0, 500, done);
   };
 
-  var processJobs = function (done) {
-    var y = []
-    that.getJobs().forEach(function(job) {
-      y.push(function (next) {
-        that.jobProcess(job, next)
-      })
+  this.fetchBlockKeys = function (done) {
+    debug('pullBlockKeys')
+    client.smembers('blockKeys', function (err, res) {
+      res.sort(blockKeyComparer);
+      res.shift()
+      done(res)
+    })
+  };
+
+  this.deleteJob = function (strJob, done) {
+    var job = JSON.parse(strJob)
+    var blockKey = job.blockKey;
+    client.lrem('r'+blockKey, 0, strJob, function (er){
+      if (er) throw er;
+      done()
     });
-    debugStat('processJobs = %s jobs.length = %s',
-      currentBlockKey,
-      y.length);
-    async.parallelLimit(y, jobQueueLength, done);
+  };
+
+  this.deleteBlockKey = function (blockKey, done) {
+    //debug('%s is deleted ', 'r'+blockKey)
+    client.srem('blockKeys', blockKey, function (err, f){
+      if (err) throw err;
+      done()
+    });
   };
 
 
-  var lastKey = null;
-  var updateCurrentBlockKey = function (done) {
-    if (currentBlockKeys.length>0) {
-      currentBlockKey = currentBlockKeys.shift();
-      lastKey = currentBlockKey;
-      debugStat('currentBlockKey = %s blockKeys.length = %s',
-        currentBlockKey,
-        currentBlockKeys.length);
-    } else {
-      currentBlockKey = false
-    }
-    done()
-  };
 
   var blockKeyComparer = function compare(a, b) {
     a = parseInt(a.substr(1))
@@ -124,38 +104,24 @@ module.exports = function (){
     if (a<b) return 1;
     return 0;
   };
+
   var pullBlockKeys = function (done) {
-    if (currentBlockKeys.length) return done();
-    debug('pullBlockKeys')
-    client.smembers('blockKeys', function (err, res) {
-      if (res.length>1) {
-        res.sort(blockKeyComparer);
-        //res.reverse()
-        res.shift()
-        currentBlockKeys = res
-      } else {
-        currentBlockKeys=[]
-      }
-      done()
+    if (currentBlockKeys.length) return done(currentBlockKeys);
+    that.fetchBlockKeys(function (keys) {
+      keys.slice(0,50).forEach(function (k) {
+        if(currentBlockKeys.indexOf(k)===-1) currentBlockKeys.push(k)
+      });
     })
   };
 
   var pullJobs = function (done) {
-    if (!currentJobs.length && currentBlockKey!==false) {
-      client.lrange('r'+currentBlockKey, 0, 500, function (err, res) {
-        debugStat('currentBlockKey = r%s currentBlockKeys.length = %s jobs.length = %s',
-          currentBlockKey,
-          currentBlockKeys.length,
-          res.length);
-        if(res.length) {
-          var t = currentJobs.splice(0).concat(res);
-          currentJobs = _.difference(t, finishedJobs);
-        }
-        done()
+    if (!currentBlockKey) currentBlockKey = currentBlockKeys.shift();
+    that.fetchJobs(currentBlockKey, function (jobs) {
+      jobs.slice(0,500).forEach(function (k) {
+        if(currentJobs.indexOf(k)===-1) currentJobs.push(k)
       });
-    } else {
-      done()
-    }
+      done(jobs)
+    })
   };
 
 
